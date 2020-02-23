@@ -1,0 +1,73 @@
+module openconfig-procmon-ext {
+
+  yang-version "1";
+
+  // namespace
+  namespace "http://infinera.com/yang/openconfig/system/procmon-ext";
+
+  prefix "oc-proc-ext";
+
+  // import some basic types
+  import openconfig-procmon { prefix oc-proc;    }
+  import ietf-yang-types    { prefix yang-types; }
+
+
+  // meta
+  organization "Infinera Corporation";
+
+  description "This module extends the openconfig-procmon module by adding some custom notifications.";
+
+  revision "2020-02-14" {
+    description
+      "Initial release";
+  }
+
+  grouping date-and-time {
+      leaf timestamp {
+          type yang-types:date-and-time; 
+      }
+  }
+
+  notification system-load-average {
+      leaf avg-1-min {
+          type decimal64 {
+              fraction-digits 2;
+          }
+      }
+
+      leaf avg-5-min {
+          type decimal64 {
+              fraction-digits 2;
+          }
+      }
+
+      leaf avg-15-min {
+          type decimal64 {
+              fraction-digits 2;
+          }
+      }
+  }
+
+  notification system-overall-cpu-memory {
+      leaf cpu-utilization {
+          type decimal64 {
+              fraction-digits 2;
+          }
+          units "%";
+      }
+
+      leaf memory-utilization {
+          type decimal64 {
+              fraction-digits 2;
+          }
+          units "%";
+      }
+  }
+
+  notification process-statistics {
+      list process {
+          key "pid";
+          uses oc-proc:procmon-process-attributes-state;
+      }
+  }
+}

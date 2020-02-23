@@ -1,0 +1,18 @@
+<oc-sys:system xmlns:oc-sys="http://openconfig.net/yang/system">
+    <oc-sys:cpus>
+        <oc-sys:cpu>
+            <oc-sys:index>ALL</oc-sys:index>
+            <oc-sys:state>
+                <oc-sys:index>ALL</oc-sys:index>
+                <oc-sys:total></oc-sys:total>
+                <oc-sys:user></oc-sys:user>
+                <oc-sys:kernel></oc-sys:kernel>
+                <oc-sys:nice></oc-sys:nice>
+                <oc-sys:idle></oc-sys:idle>
+                <oc-sys:wait></oc-sys:wait>
+                <oc-sys:hardware-interrupt></oc-sys:hardware-interrupt>
+                <oc-sys:software-interrupt></oc-sys:software-interrupt>
+            </oc-sys:state>
+        </oc-sys:cpu>
+    </oc-sys:cpus>
+</oc-sys:system>
