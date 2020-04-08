@@ -8,7 +8,8 @@ module openconfig-procmon-ext {
   prefix "oc-proc-ext";
 
   // import some basic types
-  import openconfig-procmon { prefix oc-proc; }
+  import openconfig-procmon { prefix oc-proc;    }
+  import ietf-yang-types    { prefix yang-types; }
 
 
   // meta
@@ -19,6 +20,12 @@ module openconfig-procmon-ext {
   revision "2020-02-14" {
     description
       "Initial release";
+  }
+
+  grouping date-and-time {
+      leaf timestamp {
+          type yang-types:date-and-time; 
+      }
   }
 
   notification system-load-average {
