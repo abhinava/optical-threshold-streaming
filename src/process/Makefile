@@ -90,7 +90,7 @@ process_mon.o: $(PROC_MON_SRC_HOME)/process_mon.cpp \
 	$(YANG_PATH)/openconfig-aaa-types.h
 
 %.o: %.cpp
-	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $<
+	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $(CFLAGS) $<
 
 %.h: %.fxs
 	$(CONFDC) --emit-h $*.h $<

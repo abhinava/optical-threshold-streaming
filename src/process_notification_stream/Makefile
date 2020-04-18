@@ -89,7 +89,7 @@ process_monitor_notifier.o: $(PROC_MON_STREAM_SRC_HOME)/process_monitor_notifier
 	$(YANG_PATH)/openconfig-aaa-types.h
 
 %.o: %.cpp
-	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $<
+	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $(CFLAGS) $<
 
 %.h: %.fxs
 	$(CONFDC) --emit-h $*.h $<
