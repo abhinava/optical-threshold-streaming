@@ -9,6 +9,7 @@
  */
 #include <cstring>
 #include <ctime>
+#include <cstdlib>
 #include <cmath>
 #include <iterator>
 #include <iostream>
@@ -108,27 +109,20 @@ static std::string createTempFileName(void)
     return tmpFilename;
 }
 
-static bool deleteTempFile(std::ifstream& file, std::string fileName)
-{
-    file.close();
-    remove(fileName.c_str());
-    return true;
-}
-
 static void get_cpu_count(void)
 {
     std::string tmpFilename = createTempFileName();
     std::string cmd = "grep processor /proc/cpuinfo | wc -l > " + tmpFilename;
     system(cmd.c_str());
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str()); //, std::ifstream::in);        
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
         std::string cpuCount;
 
         iss >> cpuCount;
-        CPU_COUNT = (unsigned int) std::stoi(cpuCount);
+        CPU_COUNT = (unsigned int) atoi(cpuCount.c_str());
         break;
     }
 
@@ -153,7 +147,7 @@ static load_avg_t get_system_load_average(void)
      * Output has a single line
      */
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str()); //, std::ifstream::in); 
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
@@ -163,9 +157,9 @@ static load_avg_t get_system_load_average(void)
         iss >> load5Min;
         iss >> load15Min;
 
-        loadAverages.load_avg_1min = std::stof(load1Min);
-        loadAverages.load_avg_5min = std::stof(load5Min);
-        loadAverages.load_avg_15min = std::stof(load15Min);
+        loadAverages.load_avg_1min = atof(load1Min.c_str());
+        loadAverages.load_avg_5min = atof(load5Min.c_str());
+        loadAverages.load_avg_15min = atof(load15Min.c_str());
         break;
     }
 
@@ -246,7 +240,7 @@ static void send_notification(std::vector<confd_tag_value_t> vals)
     int sz = vals.size() * sizeof(confd_tag_value_t);
     confd_tag_value_t *elements = (confd_tag_value_t *) malloc (sz);
 
-    for (int i = 0; i < vals.size(); i++) {
+    for (int i = 0; i < (int) vals.size(); i++) {
         confd_tag_value_t v = vals.at(i);
         memcpy((confd_tag_value_t *) &elements[i], (confd_tag_value_t *) &v, sizeof(confd_tag_value_t));
     }
@@ -310,7 +304,6 @@ int main(int argc, char **argv)
     struct addrinfo *addr = NULL;
     struct addrinfo hints;
     struct confd_notification_stream_cbs ncb;
-    char *p, *dname;
 
     if (argc > 1)
         interval = atoi(argv[1]);

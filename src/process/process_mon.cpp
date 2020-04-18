@@ -29,6 +29,7 @@
 #include <iterator>
 #include <iostream>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <vector>
 #include <fstream>
@@ -85,7 +86,7 @@ static void getUsageTime(std::string pid, uint64_t& userTime, uint64_t& kernelTi
     std::string cmd = "cat /proc/" + pid + "/stat" + " > " + statFilename;
     system(cmd.c_str());
 
-    std::ifstream inFile(statFilename);        
+    std::ifstream inFile(statFilename.c_str());        
     std::string line;
     std::getline(inFile, line);
     std::istringstream iss(line);
@@ -110,6 +111,68 @@ static void getUsageTime(std::string pid, uint64_t& userTime, uint64_t& kernelTi
     deleteTempFile(inFile, statFilename);
 }
 
+#ifdef BUSYBOX
+static std::vector<pinfo_t> get_system_processes(void)
+{
+    std::vector<pinfo_t> processInfoList;
+    std::string tmpFilename = createTempFileName();
+
+    std::string cmd = "ps -eo pid,pcpu,pmem,drs,comm,args --no-headers  --sort=-pcpu";
+    cmd += " > " + tmpFilename;
+
+    system(cmd.c_str());
+
+    std::ifstream inFile(tmpFilename.c_str());        
+    std::string line;
+    while (std::getline(inFile, line)) {
+        std::istringstream iss(line);
+        std::string pid, utilCPU, utilMem, memory, cmd, cmdArgs;
+        if (!(iss >> pid 
+                  >> utilCPU
+                  >> utilMem
+                  >> memory
+                  >> cmd
+                  >> cmdArgs)) {  break; }
+
+        
+        // Get the cmdargs all the way to the end of the line
+        std::size_t idx = line.rfind(cmdArgs);
+        cmdArgs = line.substr(idx);
+
+        std::istringstream arg(cmdArgs);
+        // std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
+        //                                 std::istream_iterator<std::string>{}};
+
+        // Need to do the below to compile with g++-4.8
+        std::vector<std::string> argList;
+        std::string c;
+        while (arg >> c) {
+            argList.push_back(c);
+        }
+
+        /* Get the process' CPU runtime stats */
+        uint64_t userTime, kernelTime;
+        getUsageTime(pid, userTime, kernelTime);
+
+        pinfo_t p;
+        p.pid = (uint64_t) std::atof(pid.c_str());
+        p.name = cmd;
+        p.args = argList;
+        // p.start_time = (uint64_t) atoi(startTime.c_str());
+        p.start_time = 0;
+        p.cpu_usage_user = userTime;
+        p.cpu_usage_system = kernelTime;
+        p.memory_usage = (uint64_t) atof (memory.c_str());
+        p.cpu_utilization = (uint8_t) atof (utilCPU.c_str());
+        p.memory_utilization = (uint8_t) atof (utilMem.c_str());
+        processInfoList.push_back(p);
+    }
+    
+    deleteTempFile(inFile, tmpFilename);
+    return processInfoList;
+}
+
+#else // Regular Linux Distributions with 'proper' userspace
 static std::vector<pinfo_t> get_system_processes(void)
 {
     std::vector<pinfo_t> processInfoList;
@@ -120,7 +183,7 @@ static std::vector<pinfo_t> get_system_processes(void)
 
     system(cmd.c_str());
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str());        
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
@@ -133,17 +196,21 @@ static std::vector<pinfo_t> get_system_processes(void)
                   >> cmd
                   >> cmdArgs)) {  break; }
 
+        
         // Get the cmdargs all the way to the end of the line
         std::size_t idx = line.rfind(cmdArgs);
         cmdArgs = line.substr(idx);
 
         std::istringstream arg(cmdArgs);
-        std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
-                                         std::istream_iterator<std::string>{}};
+        // std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
+        //                                 std::istream_iterator<std::string>{}};
 
-        time_t timer;
-        time(&timer);
-        uint64_t currTime = (uint64_t) timer;
+        // Need to do the below to compile with g++-4.8
+        std::vector<std::string> argList;
+        std::string c;
+        while (arg >> c) {
+            argList.push_back(c);
+        }
 
         /* Get the process' CPU runtime stats */
         uint64_t userTime, kernelTime;
@@ -153,13 +220,12 @@ static std::vector<pinfo_t> get_system_processes(void)
         p.pid = (uint64_t) std::atof(pid.c_str());
         p.name = cmd;
         p.args = argList;
-        // p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
-        p.start_time = (uint64_t) std::stoi(startTime);
+        p.start_time = (uint64_t) atoi(startTime.c_str());
         p.cpu_usage_user = userTime;
         p.cpu_usage_system = kernelTime;
-        p.memory_usage = (uint64_t) std::atof (memory.c_str());
-        p.cpu_utilization = (uint8_t) std::atof (utilCPU.c_str());
-        p.memory_utilization = (uint8_t) std::atof (utilMem.c_str());
+        p.memory_usage = (uint64_t) atof (memory.c_str());
+        p.cpu_utilization = (uint8_t) atof (utilCPU.c_str());
+        p.memory_utilization = (uint8_t) atof (utilMem.c_str());
         processInfoList.push_back(p);
     }
     
@@ -167,6 +233,7 @@ static std::vector<pinfo_t> get_system_processes(void)
     return processInfoList;
 }
 
+#endif
 
 static int populate_processes(struct sockaddr_in addr)
 {
@@ -174,7 +241,6 @@ static int populate_processes(struct sockaddr_in addr)
     struct tm *tm = localtime(&now);
     struct confd_datetime dt;
     int sock;
-    FILE *proc;
     confd_value_t timeval;
 
     dt.year = tm->tm_year + 1900;
@@ -263,7 +329,8 @@ int main(int argc, char **argv)
 
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(CONFD_PORT);
+    // addr.sin_port = htons(CONFD_PORT);
+    addr.sin_port = htons(51015);
 
     confd_init(argv[0], stderr, CONFD_TRACE);
     OK(confd_load_schemas((struct sockaddr*)&addr, sizeof(struct sockaddr_in)));

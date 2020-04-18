@@ -9,7 +9,7 @@
  * (c) Infinera Corporation, 2020
  */
 #include <cstring>
-// #include <cstdlib>
+#include <cstdlib>
 #include <ctime>
 #include <cmath>
 // #include <algorithm>
@@ -137,14 +137,14 @@ static void get_cpu_count(void)
     std::string cmd = "grep processor /proc/cpuinfo | wc -l > " + tmpFilename;
     system(cmd.c_str());
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str());
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
         std::string cpuCount;
 
         iss >> cpuCount;
-        CPU_COUNT = (unsigned int) std::stoi(cpuCount);
+        CPU_COUNT = (unsigned int) std::atoi(cpuCount.c_str());
         break;
     }
 
@@ -169,7 +169,7 @@ static load_avg_t get_system_load_average(void)
      * Output has a single line
      */
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str());
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
@@ -179,9 +179,9 @@ static load_avg_t get_system_load_average(void)
         iss >> load5Min;
         iss >> load15Min;
 
-        loadAverages.load_avg_1min = std::stof(load1Min);
-        loadAverages.load_avg_5min = std::stof(load5Min);
-        loadAverages.load_avg_15min = std::stof(load15Min);
+        loadAverages.load_avg_1min = std::atof(load1Min.c_str());
+        loadAverages.load_avg_5min = std::atof(load5Min.c_str());
+        loadAverages.load_avg_15min = std::atof(load15Min.c_str());
         break;
     }
 
@@ -231,7 +231,7 @@ static void getUsageTime(std::string pid, uint64_t& userTime, uint64_t& kernelTi
     std::string cmd = "cat /proc/" + pid + "/stat" + " > " + statFilename;
     system(cmd.c_str());
 
-    std::ifstream inFile(statFilename);        
+    std::ifstream inFile(statFilename.c_str()); 
     std::string line;
     std::getline(inFile, line);
     std::istringstream iss(line);
@@ -256,6 +256,69 @@ static void getUsageTime(std::string pid, uint64_t& userTime, uint64_t& kernelTi
     deleteTempFile(inFile, statFilename);
 }
 
+#ifdef BUSYBOX
+static std::vector<pinfo_t> get_system_processes(void)
+{
+    std::vector<pinfo_t> processInfoList;
+    std::string tmpFilename = createTempFileName();
+
+    std::string cmd = "ps -eo pid,pcpu,pmem,drs,comm,args --no-headers  --sort=-pcpu";
+    cmd += " > " + tmpFilename;
+
+    system(cmd.c_str());
+
+    std::ifstream inFile(tmpFilename.c_str());
+    std::string line;
+    while (std::getline(inFile, line)) {
+        std::istringstream iss(line);
+        std::string pid, utilCPU, utilMem, memory, cmd, cmdArgs;
+        if (!(iss >> pid 
+                  >> utilCPU
+                  >> utilMem
+                  >> memory
+                  >> cmd
+                  >> cmdArgs)) {  break; }
+
+        // Get the cmdargs all the way to the end of the line
+        std::size_t idx = line.rfind(cmdArgs);
+        cmdArgs = line.substr(idx);
+
+        std::istringstream arg(cmdArgs);
+        // std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
+        //                                 std::istream_iterator<std::string>{}};
+
+        // Need to do the below to compile with g++-4.8
+        std::vector<std::string> argList;
+        std::string c;
+        while (arg >> c) {
+            argList.push_back(c);
+        }
+
+        /* Get the process' CPU runtime stats */
+        uint64_t userTime, kernelTime;
+        getUsageTime(pid, userTime, kernelTime);
+
+        pinfo_t p;
+        p.pid = (uint64_t) std::atof(pid.c_str());
+        p.name = cmd;
+        p.args = argList;
+        p.start_time = 0; // no support for 'etimes' in ps command
+        p.cpu_usage_user = userTime;
+        p.cpu_usage_system = kernelTime;
+        p.memory_usage = (uint64_t) std::atof (memory.c_str());
+        p.cpu_utilization = (uint8_t) std::atof (utilCPU.c_str());
+        p.memory_utilization = (uint8_t) std::atof(utilMem.c_str());
+        processInfoList.push_back(p);
+
+        // std::cout << "Memory %: " << p.memory_utilization << std::endl;
+        // std::cout << "Memory (KiB): " << p.memory_usage << std::endl;
+    }
+    
+    deleteTempFile(inFile, tmpFilename);
+    return processInfoList;
+}
+
+#else // Regular, Linux distro with proper userspace utilites
 static std::vector<pinfo_t> get_system_processes(void)
 {
     std::vector<pinfo_t> processInfoList;
@@ -266,7 +329,7 @@ static std::vector<pinfo_t> get_system_processes(void)
 
     system(cmd.c_str());
 
-    std::ifstream inFile(tmpFilename);        
+    std::ifstream inFile(tmpFilename.c_str());
     std::string line;
     while (std::getline(inFile, line)) {
         std::istringstream iss(line);
@@ -284,12 +347,15 @@ static std::vector<pinfo_t> get_system_processes(void)
         cmdArgs = line.substr(idx);
 
         std::istringstream arg(cmdArgs);
-        std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
-                                         std::istream_iterator<std::string>{}};
+        // std::vector<std::string> argList{std::istream_iterator<std::string>{arg},
+        //                                 std::istream_iterator<std::string>{}};
 
-        time_t timer;
-        time(&timer);
-        uint64_t currTime = (uint64_t) timer;
+        // Need to do the below to compile with g++-4.8
+        std::vector<std::string> argList;
+        std::string c;
+        while (arg >> c) {
+            argList.push_back(c);
+        }
 
         /* Get the process' CPU runtime stats */
         uint64_t userTime, kernelTime;
@@ -300,12 +366,12 @@ static std::vector<pinfo_t> get_system_processes(void)
         p.name = cmd;
         p.args = argList;
         // p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
-        p.start_time = (uint64_t) std::stoi(startTime);
+        p.start_time = (uint64_t) std::atoi(startTime.c_str());
         p.cpu_usage_user = userTime;
         p.cpu_usage_system = kernelTime;
-        p.memory_usage = (uint64_t) std::stof (memory);
-        p.cpu_utilization = (uint8_t) std::stof (utilCPU);
-        p.memory_utilization = (uint8_t) std::stof(utilMem);
+        p.memory_usage = (uint64_t) std::atof (memory.c_str());
+        p.cpu_utilization = (uint8_t) std::atof (utilCPU.c_str());
+        p.memory_utilization = (uint8_t) std::atof(utilMem.c_str());
         processInfoList.push_back(p);
 
         // std::cout << "Memory %: " << p.memory_utilization << std::endl;
@@ -315,6 +381,7 @@ static std::vector<pinfo_t> get_system_processes(void)
     deleteTempFile(inFile, tmpFilename);
     return processInfoList;
 }
+#endif
 
 static void getdatetime(struct confd_datetime *datetime)
 {
@@ -344,7 +411,7 @@ static void send_notification(std::vector<confd_tag_value_t> vals)
     int sz = vals.size() * sizeof(confd_tag_value_t);
     confd_tag_value_t *elements = (confd_tag_value_t *) malloc (sz);
 
-    for (int i = 0; i < vals.size(); i++) {
+    for (int i = 0; i < (int) vals.size(); i++) {
         confd_tag_value_t v = vals.at(i);
         memcpy((confd_tag_value_t *) &elements[i], (confd_tag_value_t *) &v, sizeof(confd_tag_value_t));
     }
@@ -370,7 +437,7 @@ static int send_notif_process_statistics()
     float total_cpu_utilization = 0.0;
     float total_mem_utilization = 0.0;
 
-    for (int i = 0; i < processes.size() ; i++) {
+    for (int i = 0; i < (int) processes.size() ; i++) {
         confd_tag_value_t proc;
         CONFD_SET_TAG_XMLBEGIN(&proc,oc_proc_ext_process, oc_proc_ext__ns);
         vals.push_back(proc);
@@ -383,7 +450,7 @@ static int send_notif_process_statistics()
         CONFD_SET_TAG_STR(&name, oc_proc_ext_name, processes[i].name.c_str());
         vals.push_back(name);
 
-        for (int j = 0; j < processes[i].args.size(); j++) {
+        for (int j = 0; j < (int) processes[i].args.size(); j++) {
             confd_tag_value_t t;
             CONFD_SET_TAG_CBUF(&t, oc_proc_ext_args, processes[i].args[j].c_str(), processes[i].args[j].size());
             // vals.push_back(t);
@@ -465,7 +532,6 @@ int main(int argc, char **argv)
     struct addrinfo *addr = NULL;
     struct addrinfo hints;
     struct confd_notification_stream_cbs ncb;
-    char *p, *dname;
 
     if (argc > 1)
         interval = atoi(argv[1]);

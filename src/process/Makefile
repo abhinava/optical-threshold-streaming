@@ -50,6 +50,12 @@ ifeq ($(UNAME), i386)
 	CFLAGS += -m32
 endif
 
+BUSYBOX_BS = no
+
+ifeq ($(BUSYBOX_BS), yes)
+	CFLAGS += -DBUSYBOX
+endif
+
 CFLAGS	+= $(EXPAT_INC)
 LIBS	+= $(EXPAT_LIB)
 
