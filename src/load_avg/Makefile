@@ -36,18 +36,29 @@ endif
 # Example specific definitions and rules
 CONFD_FLAGS = --addloadpath $(CONFD_DIR)/etc/confd
 START_FLAGS ?=
-CONFD_SO = /home/asadasivarao/confd-fun/confd-basic-7.3.linux.x86_64/install/lib
+CONFD_SO = $(CONFD_DIR)/lib
+UNAME := $(shell uname -m)
+
+ifeq ($(UNAME), x86_64)
+	CFLAGS += -m64
+endif
+ifeq ($(UNAME), i686)
+	CFLAGS += -m32
+endif
+ifeq ($(UNAME), i386)
+	CFLAGS += -m32
+endif
 
 CFLAGS	+= $(EXPAT_INC) -g
 LIBS	+= $(EXPAT_LIB)
 
-PROJ_HOME = /home/asadasivarao/git/netconf-streaming
+PROJ_HOME = ../../
 YANG_PATH = $(PROJ_HOME)/yang
 CFLAGS += -I$(YANG_PATH)
 CONFD_FLAGS += --addloadpath $(YANG_PATH)
 
 LOAD_AVG_STREAM_SRC_HOME = $(PROJ_HOME)/src/load_avg
-PROG_NAME = loag_avg_notifier
+PROG_NAME = load_avg_notifier
 LOAD_AVG_STREAM_PROG = $(LOAD_AVG_STREAM_SRC_HOME)/$(PROG_NAME)
 
 CXX = g++
@@ -78,7 +89,7 @@ load_avg_notifier.o: $(LOAD_AVG_STREAM_SRC_HOME)/load_avg_notifier.cpp \
 	$(YANG_PATH)/openconfig-aaa-types.h
 
 %.o: %.cpp
-	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $<
+	$(CXX) -c -g -I $(CONFD_DIR)/include -I $(YANG_PATH) $(CFLAGS) $<
 
 %.h: %.fxs
 	$(CONFDC) --emit-h $*.h $<

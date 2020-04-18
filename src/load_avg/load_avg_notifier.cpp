@@ -8,12 +8,15 @@
  * (c) Infinera Corporation, 2020
  */
 #include <cstring>
-#include <cstdlib>
-#include <unistd.h>
-#include <cstdio>
 #include <ctime>
 #include <cmath>
+#include <iterator>
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <sstream>
 
+#include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -21,23 +24,14 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/time.h>
-#include <signal.h>
 
 #include <confd_lib.h>
 #include <confd_dp.h>
 #include <confd_cdb.h>
 
-#include <algorithm>
-#include <iterator>
-#include <iostream>
-#include <ctime>
-#include <vector>
-#include <fstream>
-#include <sstream>
-
 #include "openconfig-procmon-ext.h"
 
-#define INTERVAL 10
+#define INTERVAL 30
 #define MAX_SAMPLES (86400/interval)
 
 #define PROC_NAME 128
@@ -193,8 +187,8 @@ static void adapt_stream_interval(load_avg_t loadAverage)
         // Load is increasing
         std::cout << "\tSystem Load is Increasing...\n";
 
-        float curr_demand = loadAvg1min / CPU_COUNT;
-        if (curr_demand > 1.0) {
+        float curr_demand = loadAvg1min; // / CPU_COUNT;
+        if (curr_demand > 10.0) {
             // Overloaded
             std::cout << "\t\tSystem Demand High...\n";
            
@@ -210,7 +204,7 @@ static void adapt_stream_interval(load_avg_t loadAverage)
         else {
             // Not yet overloaded
            stream_interval = (prev_stream_interval / 1.15); 
-           if (stream_interval <= 0) {
+           if (stream_interval <= 5) {
                stream_interval = rand() % 5;
            }
             std::cout << "\t\tSystem Demand Not-yet High...\n";
@@ -325,7 +319,8 @@ int main(int argc, char **argv)
 
     stream_interval = interval;
 
-    snprintf(confd_port, sizeof(confd_port), "%d", CONFD_PORT);
+    // snprintf(confd_port, sizeof(confd_port), "%d", CONFD_PORT);
+    snprintf(confd_port, sizeof(confd_port), "%d", 51015);
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = PF_UNSPEC;

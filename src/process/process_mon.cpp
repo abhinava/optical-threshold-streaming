@@ -153,7 +153,8 @@ static std::vector<pinfo_t> get_system_processes(void)
         p.pid = (uint64_t) std::atof(pid.c_str());
         p.name = cmd;
         p.args = argList;
-        p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
+        // p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
+        p.start_time = (uint64_t) std::stoi(startTime);
         p.cpu_usage_user = userTime;
         p.cpu_usage_system = kernelTime;
         p.memory_usage = (uint64_t) std::atof (memory.c_str());

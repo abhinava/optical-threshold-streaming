@@ -9,31 +9,29 @@
  * (c) Infinera Corporation, 2020
  */
 #include <cstring>
-#include <cstdlib>
-#include <unistd.h>
-#include <cstdio>
+// #include <cstdlib>
 #include <ctime>
+#include <cmath>
+// #include <algorithm>
+#include <iterator>
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <sstream>
 
+#include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <sys/time.h>
-#include <signal.h>
+// #include <signal.h>
 
 #include <confd_lib.h>
 #include <confd_dp.h>
 #include <confd_cdb.h>
-
-#include <algorithm>
-#include <iterator>
-#include <iostream>
-#include <ctime>
-#include <vector>
-#include <fstream>
-#include <sstream>
 
 #include "openconfig-procmon-ext.h"
 
@@ -301,7 +299,8 @@ static std::vector<pinfo_t> get_system_processes(void)
         p.pid = (uint64_t) std::atof(pid.c_str());
         p.name = cmd;
         p.args = argList;
-        p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
+        // p.start_time = currTime - ((uint64_t) std::atoi(startTime.c_str()));
+        p.start_time = (uint64_t) std::stoi(startTime);
         p.cpu_usage_user = userTime;
         p.cpu_usage_system = kernelTime;
         p.memory_usage = (uint64_t) std::stof (memory);
@@ -358,6 +357,7 @@ static void send_notification(std::vector<confd_tag_value_t> vals)
     free (elements);
 }
 
+
 static int send_notif_process_statistics()
 {
     std::vector<confd_tag_value_t> vals;
@@ -366,6 +366,9 @@ static int send_notif_process_statistics()
     confd_tag_value_t outer;
     CONFD_SET_TAG_XMLBEGIN(&outer, oc_proc_ext_process_statistics, oc_proc_ext__ns);
     vals.push_back(outer);
+
+    float total_cpu_utilization = 0.0;
+    float total_mem_utilization = 0.0;
 
     for (int i = 0; i < processes.size() ; i++) {
         confd_tag_value_t proc;
@@ -399,6 +402,7 @@ static int send_notif_process_statistics()
         CONFD_SET_TAG_UINT64(&cpu_usage_system, oc_proc_ext_cpu_usage_system, processes[i].cpu_usage_system);
         vals.push_back(cpu_usage_system);
 
+        total_cpu_utilization += processes[i].cpu_utilization;
         confd_tag_value_t cpu_utilization;
         CONFD_SET_TAG_UINT8(&cpu_utilization, oc_proc_ext_cpu_utilization, processes[i].cpu_utilization);
         vals.push_back(cpu_utilization);
@@ -408,6 +412,7 @@ static int send_notif_process_statistics()
         // vals.push_back(memory_usage);
         // std::cout << "Memory Usage: " <<  CONFD_GET_UINT64(CONFD_GET_TAG_VALUE(&memory_usage)) << std::endl;
 
+        total_mem_utilization += processes[i].memory_utilization;
         confd_tag_value_t memory_utilization;
         CONFD_SET_TAG_UINT8(&memory_utilization, oc_proc_ext_memory_utilization, processes[i].memory_utilization);
         vals.push_back(memory_utilization);
@@ -418,8 +423,35 @@ static int send_notif_process_statistics()
 
     CONFD_SET_TAG_XMLEND(&outer, oc_proc_ext_process_statistics, oc_proc_ext__ns);
     vals.push_back(outer);
-
+    
+    /* Emit the notification */
     send_notification(vals);
+
+    // ----------- Total CPU and Memory ---------------
+
+    std::cout << "CPU Utilization: " << total_cpu_utilization << std::endl;
+    std::cout << "Memory Utilization: " << total_mem_utilization << std::endl;
+
+    std::vector<confd_tag_value_t> cpu_memory_utilization;
+    confd_tag_value_t cpuMemTag;
+    CONFD_SET_TAG_XMLBEGIN(&cpuMemTag, oc_proc_ext_system_overall_cpu_memory, oc_proc_ext__ns);
+    cpu_memory_utilization.push_back(cpuMemTag);
+
+    struct confd_decimal64 cpuMem;
+    cpuMem.value = total_cpu_utilization * pow(10, 2);
+    cpuMem.fraction_digits = 2;
+    CONFD_SET_TAG_DECIMAL64(&cpuMemTag, oc_proc_ext_cpu_utilization, cpuMem);
+    cpu_memory_utilization.push_back(cpuMemTag);
+    cpuMem.value = total_mem_utilization * pow(10, 2);
+    cpuMem.fraction_digits = 2;
+    CONFD_SET_TAG_DECIMAL64(&cpuMemTag, oc_proc_ext_memory_utilization, cpuMem);
+    cpu_memory_utilization.push_back(cpuMemTag);
+
+    CONFD_SET_TAG_XMLEND(&cpuMemTag, oc_proc_ext_system_overall_cpu_memory, oc_proc_ext__ns);
+    cpu_memory_utilization.push_back(cpuMemTag);
+
+    /* Emit the notification */
+    send_notification(cpu_memory_utilization);
 
     adapt_stream_interval(get_system_load_average());
 
@@ -442,7 +474,8 @@ int main(int argc, char **argv)
 
     stream_interval = interval;
 
-    snprintf(confd_port, sizeof(confd_port), "%d", CONFD_PORT);
+    // snprintf(confd_port, sizeof(confd_port), "%d", CONFD_PORT);
+    snprintf(confd_port, sizeof(confd_port), "%d", 51015);
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = PF_UNSPEC;

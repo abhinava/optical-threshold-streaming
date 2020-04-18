@@ -48,6 +48,22 @@ module openconfig-procmon-ext {
       }
   }
 
+  notification system-overall-cpu-memory {
+      leaf cpu-utilization {
+          type decimal64 {
+              fraction-digits 2;
+          }
+          units "%";
+      }
+
+      leaf memory-utilization {
+          type decimal64 {
+              fraction-digits 2;
+          }
+          units "%";
+      }
+  }
+
   notification process-statistics {
       list process {
           key "pid";
