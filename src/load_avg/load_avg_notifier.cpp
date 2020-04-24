@@ -173,43 +173,73 @@ static void adapt_stream_interval(load_avg_t loadAverage)
 {
     float loadAvg1min = loadAverage.load_avg_1min;
     float loadAvg5min = loadAverage.load_avg_5min;
-    float loadAvg15min = loadAverage.load_avg_15min;
+    // float loadAvg15min = loadAverage.load_avg_15min;
 
     prev_stream_interval = stream_interval;
 
-    if (loadAvg1min > loadAvg5min || loadAvg1min > loadAvg15min) {
+    if (loadAvg1min > loadAvg5min) {
         // Load is increasing
-        std::cout << "\tSystem Load is Increasing...\n";
+        std::cout << "\tSystem Load is increasing...\n";
 
         float curr_demand = loadAvg1min; // / CPU_COUNT;
-        if (curr_demand > 10.0) {
+        if (curr_demand >= (0.4 * CPU_COUNT) && curr_demand < (0.41 * CPU_COUNT)) {
+            std::cout << "\t\tSystem demand increasing and is "
+                      << "currently greater than 40% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
+
+            float increase = 10; // 10%
+            std::cout << "\t\tIncrease streaming frequency by "
+                      << increase << "%" << std::endl;
+
+            stream_interval = (prev_stream_interval / (1 + (increase/100))); 
+            if (stream_interval <= 5) {
+                stream_interval = rand() % 5;
+            }
+        }
+
+        if (curr_demand >= (0.6 * CPU_COUNT) && curr_demand < CPU_COUNT) {
+            std::cout << "\t\tSystem demand increasing and is "
+                      << "currently at 60% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
+
+            float increase = 20; // 10%
+            std::cout << "\t\tIncrease streaming frequency by "
+                      << increase << "%" << std::endl;
+
+            stream_interval = (prev_stream_interval / (1 + (increase/100))); 
+            if (stream_interval <= 5) {
+                stream_interval = rand() % 5;
+            }
+        }
+
+        if (curr_demand > CPU_COUNT) {
             // Overloaded
-            std::cout << "\t\tSystem Demand High...\n";
+            std::cout << "\t\tSystem demand is high and is currently "
+                      << "at 50% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
            
             if (curr_demand > prev_demand) {
-                std::cout << "\t\t\tCurrent Demand is greater than Previous Demand\n";
+                std::cout << "\t\t\tCurrent demand is greater than "
+                          << "previous demand. Slowing down streaming by 50%"
+                          << std::endl;
+
                 stream_interval = prev_stream_interval * 1.5;
             } else {
-                std::cout << "\t\t\tCurrent Demand is lesser than Previous Demand\n";
-                stream_interval = (prev_stream_interval * 1.15);
+                std::cout << "\t\t\tCurrent demand is lesser than previous "
+                          << "demand. Slowing down streaming by a further 10%"
+                          << std::endl;
+                stream_interval = (prev_stream_interval * 1.10);
             }
             prev_demand = curr_demand;
-        }
-        else {
-            // Not yet overloaded
-           stream_interval = (prev_stream_interval / 1.15); 
-           if (stream_interval <= 5) {
-               stream_interval = rand() % 5;
-           }
-            std::cout << "\t\tSystem Demand Not-yet High...\n";
         }
     } else {
         // Load is decreasing
         // Reset to default interval
         stream_interval = INTERVAL;
+        std::cout << "\tSystem load is decreasing...\n";
     }
 
-    std::cout << "Streaming Interval is: " << stream_interval << std::endl;
+    std::cout << "Streaming Interval is: " << stream_interval << "s" << std::endl;
 }
 
 static void getdatetime(struct confd_datetime *datetime)

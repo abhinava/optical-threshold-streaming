@@ -35,7 +35,7 @@
 
 #include "openconfig-procmon-ext.h"
 
-#define INTERVAL 10
+#define INTERVAL 30
 #define MAX_SAMPLES (86400/interval)
 
 #define PROC_NAME 128
@@ -185,6 +185,10 @@ static load_avg_t get_system_load_average(void)
         break;
     }
 
+    std::cout << "\tCurrent 1-min Load Average: " << loadAverages.load_avg_1min << std::endl;
+    std::cout << "\tCurrent 5-min Load Average: " << loadAverages.load_avg_5min << std::endl;
+    std::cout << "\tCurrent 15-min Load Average: " << loadAverages.load_avg_15min << std::endl;
+
     inFile.close();
     remove(tmpFilename.c_str());
 
@@ -195,35 +199,75 @@ static void adapt_stream_interval(load_avg_t loadAverage)
 {
     float loadAvg1min = loadAverage.load_avg_1min;
     float loadAvg5min = loadAverage.load_avg_5min;
-    float loadAvg15min = loadAverage.load_avg_15min;
+    // float loadAvg15min = loadAverage.load_avg_15min;
 
+    prev_stream_interval = stream_interval;
 
-    if (loadAvg1min > loadAvg5min || loadAvg1min > loadAvg15min) {
+    if (loadAvg1min > loadAvg5min) {
         // Load is increasing
+        std::cout << "\tSystem Load is increasing...\n";
 
-        float curr_demand = loadAvg1min / CPU_COUNT;
-        if (curr_demand > 1.0) {
+        float curr_demand = loadAvg1min; // / CPU_COUNT;
+        if (curr_demand >= (0.4 * CPU_COUNT) && curr_demand < (0.41 * CPU_COUNT)) {
+            std::cout << "\t\tSystem demand increasing and is "
+                      << "currently greater than 40% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
+
+            float increase = 10; // 10%
+            std::cout << "\t\tIncrease streaming frequency by "
+                      << increase << "%" << std::endl;
+
+            stream_interval = (prev_stream_interval / (1 + (increase/100))); 
+            if (stream_interval <= 5) {
+                stream_interval = rand() % 5;
+            }
+        }
+
+        if (curr_demand >= (0.6 * CPU_COUNT) && curr_demand < CPU_COUNT) {
+            std::cout << "\t\tSystem demand increasing and is "
+                      << "currently at 60% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
+
+            float increase = 20; // 10%
+            std::cout << "\t\tIncrease streaming frequency by "
+                      << increase << "%" << std::endl;
+
+            stream_interval = (prev_stream_interval / (1 + (increase/100))); 
+            if (stream_interval <= 5) {
+                stream_interval = rand() % 5;
+            }
+        }
+
+        if (curr_demand > CPU_COUNT) {
             // Overloaded
+            std::cout << "\t\tSystem demand is high and is currently "
+                      << "at 50% of the number of CPU cores "
+                      << "(" << CPU_COUNT << ")" << std::endl;
            
             if (curr_demand > prev_demand) {
+                std::cout << "\t\t\tCurrent demand is greater than "
+                          << "previous demand. Slowing down streaming by 50%"
+                          << std::endl;
+
                 stream_interval = prev_stream_interval * 1.5;
             } else {
-                stream_interval = (prev_stream_interval * 1.15);
+                std::cout << "\t\t\tCurrent demand is lesser than previous "
+                          << "demand. Slowing down streaming by a further 10%"
+                          << std::endl;
+                stream_interval = (prev_stream_interval * 1.10);
             }
             prev_demand = curr_demand;
-        }
-        else {
-            // Not yet overloaded
-           stream_interval = (prev_stream_interval / 1.5); 
         }
     } else {
         // Load is decreasing
         // Reset to default interval
         stream_interval = INTERVAL;
+        std::cout << "\tSystem load is decreasing...\n";
     }
 
-    std::cout << "Streaming Interval is: " << stream_interval << std::endl;
+    std::cout << "Streaming Interval is: " << stream_interval << "s" << std::endl;
 }
+
 
 static void getUsageTime(std::string pid, uint64_t& userTime, uint64_t& kernelTime)
 {
