@@ -31,6 +31,14 @@ This project was done in the context of the following demonstration at [OFC 2020
   - The demonstration was done on **Infinera's** [**XT-3300**](https://www.infinera.com/products/xt-series) **optical transponder**. The NETCONF threshold based streaming applications were run as "[software agents](https://www.osapublishing.org/abstract.cfm?uri=OFC-2019-M3Z.1)" on the host XT-3300 NE operating system.
   - The [poster](https://www.osapublishing.org/abstract.cfm?URI=OFC-2020-M3Z.5#articleSupplMat) provides additional details on the actual demonstration setup, including the data collection and visualization (using [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/)).
 
+# Other
+
+ - To download and install ConfD, please visit [this](https://developer.cisco.com/site/confD/downloads/) page.
+    - Although the link above refers to `confd-basic`, we have tested our streaming agents with [ConfD Premium](https://www.tail-f.com/management-agent/) and it works just as well.
+ - ConfD requires OpenSSL's **libcrypto**, _specifically_, `libcrypto.so.1.0.0`. Newer versions of libcrypto may not be compatible with ConfD. Please refer to the ConfD
+    - Installation of libcrypto is out-of-scope of this guide. Refer to your operating system (preferably Linux) distribution for details.
+    - _If using Linux, one could use popular distributions such as Debian to [obtain](https://packages.debian.org/search?suite=jessie&arch=any&mode=filename&searchon=contents&keywords=libcrypto.so.1.0.0) the `libcrypto.so.1.0.0` library_.
+
 --------
 **(c) Infinera Corporation, 2020**
 
