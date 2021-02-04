@@ -25,7 +25,7 @@ This project also has Python [ncclient](https://pypi.org/project/ncclient/) base
 
 ## Demonstration
 
-This project was done in the context of the following demonstration at [OFC 2020 Demo Zone](https://www.osapublishing.org/conference.cfm?meetingid=5&yr=2020):
+This project was done as a collaboration between **Infinera** and **Oracle Cloud Infrastructure (OCI)**, as part of [OFC 2020 Demo Zone](https://www.osapublishing.org/conference.cfm?meetingid=5&yr=2020):
 
 - Abhinava Sadasivarao, Sharfuddin Syed, Deepak Panda, Paulo Gomes, Rajan Rao, Jonathan Buset, Loukas Paraschis, Jag Brar, and Kannan Raj, _"**Demonstration of Extensible Threshold-based Streaming Telemetry for Open DWDM Analytics and Verification**"_, Optical Fiber Conference (OFC) 2020 [(DOI)](https://doi.org/10.1364/OFC.2020.M3Z.5).
   - The demonstration was done on **Infinera's** [**XT-3300**](https://www.infinera.com/products/xt-series) **optical transponder**. The NETCONF threshold based streaming applications were run as "[software agents](https://www.osapublishing.org/abstract.cfm?uri=OFC-2019-M3Z.1)" on the host XT-3300 NE operating system.
